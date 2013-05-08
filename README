@@ -15,4 +15,6 @@ build/install:
 	 apt-get install libncurses5 
 	 
 any question:
-mail to:wkunhui@gmail.com
+mail to:Desmond Wu <wkunhui@gmail.com>
+
+The original author of lfdk is Merck Hung <merckhung@gmail.com>

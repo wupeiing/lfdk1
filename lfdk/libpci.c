@@ -3,6 +3,7 @@
  * File: libpci.c
  *
  * Copyright (C) 2006 - 2010 Merck Hung <merckhung@gmail.com>
+ * Copyright (C) 2013 Desmond Wu <wkunhui@gmail.com>
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -26,7 +27,7 @@
 #include <ncurses.h>
 #include <panel.h>
 
-#include "../lfdd/lfdd.h"
+//#include "../lfdd/lfdd.h"
 #include "lfdk.h"
 
 
@@ -34,7 +35,7 @@ char read_buffer[ LFDK_MAX_READBUF ];
 PCIData lfdd_pci_list[ LFDK_MAX_PCIBUF ];
 PCIPanel PCIScreen;
 PCILPanel PCILScreen;
-struct lfdd_pci_t lfdd_pci_data;
+//struct lfdd_pci_t lfdd_pci_data;
 
 
 extern int x, y;
@@ -190,11 +191,11 @@ void GetVendorAndDeviceTexts( int venid, int devid, char *ventxt, char *devtxt )
 }
 
 
-void ScanPCIDevice( int fd ) {
+void ScanPCIDevice(  ) {
 
     int i;
     unsigned char bus = 0, dev = 0, fun = 0;
-
+	unsigned int buff=0;
 
     //
     // Scan PCI memory space
@@ -212,13 +213,16 @@ void ScanPCIDevice( int fd ) {
                 doupdate();
 
             
-                lfdd_pci_data.bus = bus;
-                lfdd_pci_data.dev = dev;
-                lfdd_pci_data.fun = fun;
-                lfdd_pci_data.reg = 0;
-                LFDD_IOCTL( fd, LFDD_PCI_READ_WORD, lfdd_pci_data );
+                //lfdd_pci_data.bus = bus;
+                //lfdd_pci_data.dev = dev;
+                //lfdd_pci_data.fun = fun;
+                //lfdd_pci_data.reg = 0;
+				
+                //LFDD_IOCTL( fd, LFDD_PCI_READ_WORD, lfdd_pci_data );
 
-                if( (lfdd_pci_data.buf & 0xffff) != 0xffff ) {
+                //if( (lfdd_pci_data.buf & 0xffff) != 0xffff ) {
+				buff = pci_int_get(bus,dev,fun,0);                
+				if( (buff & 0xffff) != 0xffff ) {					
 
 
                     //
@@ -227,15 +231,16 @@ void ScanPCIDevice( int fd ) {
                     lfdd_pci_list[ last_index ].bus   = bus;
                     lfdd_pci_list[ last_index ].dev   = dev;
                     lfdd_pci_list[ last_index ].fun   = fun;
-                    lfdd_pci_list[ last_index ].venid = (unsigned short int)lfdd_pci_data.buf;
+                    lfdd_pci_list[ last_index ].venid = (unsigned short int)buff;
 
                     
                     //
                     // Read and record Device ID
                     //
-                    lfdd_pci_data.reg += 0x02;
-                    LFDD_IOCTL( fd, LFDD_PCI_READ_WORD, lfdd_pci_data );
-                    lfdd_pci_list[ last_index ].devid = (unsigned short int)lfdd_pci_data.buf;
+                    //lfdd_pci_data.reg += 0x02;
+                   // LFDD_IOCTL( fd, LFDD_PCI_READ_WORD, lfdd_pci_data );
+                 	buff = pci_int_get(bus,dev,fun,0);
+                    lfdd_pci_list[ last_index ].devid = (unsigned short int)((buff>>16)&0xffff);
 
 
                     //
@@ -258,7 +263,7 @@ void ScanPCIDevice( int fd ) {
     DestroyWin( PCILScreen, scan );
 }
 
-
+#if 0
 void WritePCIByteValue( fd ) {
 
 
@@ -270,7 +275,7 @@ void WritePCIByteValue( fd ) {
 
     LFDD_IOCTL( fd, LFDD_PCI_WRITE_BYTE, lfdd_pci_data );
 }
-
+#endif
 
 void ClearPCIScreen() {
 
@@ -285,7 +290,9 @@ void ClearPCIScreen() {
 
 void PrintPCIScreen( int fd ) {
 
-    int i, j;
+    int i, j ,k ;
+	unsigned char u8Buff[LFDD_MASSBUF_SIZE];
+
 
 
     if( ibuf == KEY_UP ) {
@@ -355,7 +362,8 @@ void PrintPCIScreen( int fd ) {
         if( input ) {
 
             input = 0;
-            WritePCIByteValue( fd );
+		
+			pci_byte_set(lfdd_pci_list[ curr_index ].bus,lfdd_pci_list[ curr_index ].dev,lfdd_pci_list[ curr_index ].fun,x * 16 + y,wbuf);
         }
     }
     else if ( ((ibuf >= '0') && (ibuf <= '9'))
@@ -429,11 +437,15 @@ void PrintPCIScreen( int fd ) {
     //
     // Read PCI configuration space 256 bytes
     //
-    lfdd_pci_data.bus = lfdd_pci_list[ curr_index ].bus;
-    lfdd_pci_data.dev = lfdd_pci_list[ curr_index ].dev;
-    lfdd_pci_data.fun = lfdd_pci_list[ curr_index ].fun;
-    lfdd_pci_data.reg = 0;
-    LFDD_IOCTL( fd, LFDD_PCI_READ_256BYTE, lfdd_pci_data );
+
+    //lfdd_pci_data.bus = lfdd_pci_list[ curr_index ].bus;
+    //lfdd_pci_data.dev = lfdd_pci_list[ curr_index ].dev;
+    //lfdd_pci_data.fun = lfdd_pci_list[ curr_index ].fun;
+    //lfdd_pci_data.reg = 0;
+
+	//LFDD_IOCTL( fd, LFDD_PCI_READ_256BYTE, lfdd_pci_data );
+	for(k=0;k<256;k+=4)
+    	*((unsigned int *)&u8Buff[k])= pci_int_get( lfdd_pci_list[ curr_index ].bus, lfdd_pci_list[ curr_index ].dev, lfdd_pci_list[ curr_index ].fun,k);
 
 
 
@@ -454,9 +466,9 @@ void PrintPCIScreen( int fd ) {
     wprintw( PCIScreen.rtitle, "Data Width : 8 bits\n\n" );
 
     wprintw( PCIScreen.rtitle, "VID:DID = %4.4X:%4.4X\n", lfdd_pci_list[ curr_index ].venid, lfdd_pci_list[ curr_index ].devid );
-    wprintw( PCIScreen.rtitle, "Rev ID        : %2.2X\n", (unsigned char)lfdd_pci_data.mass_buf[ 0x08 ] );
-    wprintw( PCIScreen.rtitle, "Int Line (IRQ): %2.2X\n", (unsigned char)lfdd_pci_data.mass_buf[ 0x3c ] );
-    wprintw( PCIScreen.rtitle, "Int Pin       : %2.2X\n\n", (unsigned char)lfdd_pci_data.mass_buf[ 0x3c + 8 ] );
+    wprintw( PCIScreen.rtitle, "Rev ID        : %2.2X\n", u8Buff[ 0x08 ] );
+    wprintw( PCIScreen.rtitle, "Int Line (IRQ): %2.2X\n", u8Buff[ 0x3c ] );
+    wprintw( PCIScreen.rtitle, "Int Pin       : %2.2X\n\n", u8Buff[ 0x3c + 8 ] );
 
     wprintw( PCIScreen.rtitle, "Mem: 00000000 00000000\n" );
     wprintw( PCIScreen.rtitle, "Mem: 00000000 00000000\n" );
@@ -512,7 +524,7 @@ void PrintPCIScreen( int fd ) {
                     wattrset( PCIScreen.value, COLOR_PAIR( BLACK_YELLOW ) | A_BOLD ); 
                 }
             }
-            else if( ((unsigned char)lfdd_pci_data.mass_buf[ (i * LFDK_BYTE_PER_LINE) + j ]) ) {
+            else if( (u8Buff[ (i * LFDK_BYTE_PER_LINE) + j ]) ) {
            
                 wattrset( PCIScreen.value, COLOR_PAIR( YELLOW_BLUE ) | A_BOLD );            
             }
@@ -534,12 +546,12 @@ void PrintPCIScreen( int fd ) {
                 }
                 else {
                 
-                    wprintw( PCIScreen.value, "%2.2X", (unsigned char)lfdd_pci_data.mass_buf[ (i * LFDK_BYTE_PER_LINE) + j ] );
+                    wprintw( PCIScreen.value, "%2.2X", u8Buff[ (i * LFDK_BYTE_PER_LINE) + j ] );
                 }
             }
             else {
 
-                wprintw( PCIScreen.value, "%2.2X", (unsigned char)lfdd_pci_data.mass_buf[ (i * LFDK_BYTE_PER_LINE) + j ] );
+                wprintw( PCIScreen.value, "%2.2X", u8Buff[ (i * LFDK_BYTE_PER_LINE) + j ] );
             }
 
 

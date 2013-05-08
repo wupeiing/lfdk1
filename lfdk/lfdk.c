@@ -3,6 +3,7 @@
  * File: lfdk.c
  *
  * Copyright (C) 2006 - 2010 Merck Hung <merckhung@gmail.com>
+ * Copyright (C) 2013 Desmond Wu <wkunhui@gmail.com>
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -27,10 +28,14 @@
 #include <ncurses.h>
 #include <panel.h>
 
-#include "../lfdd/lfdd.h"
+//#include "../lfdd/lfdd.h"
 #include "lfdk.h"
 
+#include<sys/mman.h>
+#include <sys/io.h>
 
+
+static const char *progname;
 static BasePanel BaseScreen;
 
 
@@ -45,6 +50,137 @@ int maxpcibus = 255;
 char pciname[ LFDK_MAX_PATH ];
 char enter_mem = 0;
 
+unsigned int  io_int_get(unsigned int u32addr)
+{
+	unsigned int idata = 0;
+	ioperm(u32addr,4,1);
+	idata = inl(u32addr);
+	return idata;
+}
+void  io_int_set(unsigned int u32addr, unsigned int u32data)
+{
+	ioperm(u32addr,4, 1);
+	outl(u32data, u32addr );
+}
+void io_byte_set(unsigned int u32addr, unsigned char u8data)
+{
+	ioperm(u32addr, 1, 1);
+	outb(u8data, u32addr );
+}
+
+unsigned int pci_int_get(unsigned char u8bus, unsigned char u8dev, unsigned char u8fun, unsigned char u8reg)
+{
+	unsigned int   u32addr=0,u32data=0;
+	u32addr = u8reg | (u8fun << 8) | (u8dev << 11) | (u8bus << 16) | 0x80000000;
+	
+	io_int_set(0x0cf8, u32addr); 	
+	u32data = io_int_get((unsigned short int) 0x0cfc); 	
+	
+	return u32data;
+}
+
+void pci_int_set(unsigned char u8bus, unsigned char u8dev, unsigned char u8fun, unsigned char u8reg, unsigned int u32data)
+{
+	unsigned int   u32addr=0;
+	u32addr = u8reg | (u8fun << 8) | (u8dev << 11) | (u8bus << 16) | 0x80000000;
+	
+	io_int_set(0x0cf8, u32addr); 
+	io_int_set(0x0cfc, u32data); 
+	
+}
+void pci_byte_set(unsigned char u8bus, unsigned char u8dev, unsigned char u8fun, unsigned char u8reg, unsigned char u8data)
+
+{
+	unsigned int   u32addr=0,u32data=0;
+	u32addr = u8reg | (u8fun << 8) | (u8dev << 11) | (u8bus << 16) | 0x80000000;
+		
+	io_int_set(0x0cf8, u32addr); 
+	u32data = io_int_get((unsigned short int) 0x0cfc); 
+	u32data = (u32data&0xffffff00) | u8data;
+	io_int_set(0x0cfc, u32data); 
+}
+
+
+int mem_int_set( unsigned int u32addr, unsigned int u32data )
+{
+	int	fd = 0;
+	unsigned int	*pu32mmap = NULL;	
+
+	fd = open("/dev/mem", O_RDWR);
+	if ( fd == -1 )
+	{
+		return -1;
+	}
+
+	pu32mmap = (unsigned int *)mmap(0, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, fd, u32addr&0xfffff000);
+	if(pu32mmap == (void *) -1)
+	{
+		if (fd) close(fd);
+		return -1;
+	}	
+
+	pu32mmap[(u32addr&0xfff)>>2] = u32data;	// Get data from register
+	munmap(pu32mmap, 0xfff);
+	if (fd) close(fd);
+	return 0;
+	
+}
+
+
+int mem_byte_set( unsigned int u32addr, unsigned char u8data ) 
+{
+	unsigned int u32buff=0;
+	int	fd = 0;
+	unsigned int	*pu32mmap = NULL;	
+
+	fd = open("/dev/mem", O_RDWR);
+	if ( fd == -1 )
+	{
+		return -1;
+	}
+
+	pu32mmap = (unsigned int *)mmap(0, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, fd, u32addr&0xfffff000);
+	if(pu32mmap == (void *) -1)
+	{
+		if (fd) close(fd);
+
+		return -1;
+	}	
+
+	u32buff = pu32mmap[(u32addr&0xfff)>>2];
+	*(((unsigned char*)&u32buff) + (unsigned char)(u32addr&0x3)) = u8data;
+	pu32mmap[(u32addr&0xfff)>>2] = u32buff;	// Get data from register
+	usleep(100);
+
+	munmap(pu32mmap, 0xfff);
+	if (fd) close(fd);
+	return 0;    
+}
+
+int mem_int_get( unsigned int u32addr, unsigned int *pu32data ) 
+{
+	int	fd = 0;
+	unsigned int	*pu32mmap = NULL;	
+
+	fd = open("/dev/mem", O_RDWR);
+	if ( fd == -1 )
+	{
+		return -1;
+	}
+
+	pu32mmap = (unsigned int *)mmap(0, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, fd, u32addr&0xfffff000);
+	if(pu32mmap == (void *) -1)
+	{
+		if (fd) close(fd);
+		return -1;
+	}	
+
+
+	*pu32data = pu32mmap[(u32addr&0xfff)>>2] ;
+	munmap(pu32mmap, 0xfff);
+	if (fd) close(fd);
+	return 0;    
+}
 
 void PrintBaseScreen( void );
 
@@ -53,6 +189,7 @@ static void usage( void ) {
 
     fprintf( stderr, "\n"LFDK_VERTEXT"\n" );
 	fprintf( stderr, "Copyright (C) 2006 - 2010, Merck Hung <merckhung@gmail.com>\n" );
+	fprintf( stderr, "Copyright (C) 2013 Desmond Wu <wkunhui@gmail.com>\n" );
     fprintf( stderr, "Usage: "LFDK_PROGNAME" [-h] [-d /dev/lfdd] [-n ./pci.ids] [-b 255]\n" );
     fprintf( stderr, "\t-n\tFilename of PCI Name Database, default is /usr/share/misc/pci.ids\n" );
     fprintf( stderr, "\t-d\tDevice name of Linux Firmware Debug Driver, default is /dev/lfdd\n" );
@@ -102,6 +239,9 @@ void PrintBaseScreen( void ) {
 
 int main( int argc, char **argv ) {
 
+    extern char *optarg;
+    extern int optind;
+
     char c, device[ LFDK_MAX_PATH ];
     int i, fd, orig_fl;
 
@@ -113,7 +253,7 @@ int main( int argc, char **argv ) {
     //
     // Initialize & set default value
     //
-    strncpy( device, LFDD_DEFAULT_PATH, LFDK_MAX_PATH );
+//    strncpy( device, LFDD_DEFAULT_PATH, LFDK_MAX_PATH );
     strncpy( pciname, LFDK_DEFAULT_PCINAME, LFDK_MAX_PATH );
 
 
@@ -161,24 +301,14 @@ int main( int argc, char **argv ) {
 
     //
     // Start communicate with LFDD I/O control driver
-	//
-    fd = open( device, O_RDWR );
+    //
+    fd = open("/dev/mem", O_RDWR);
     if( fd < 0 ) {
 
-        fprintf( stderr, "Cannot open device: %s\n", device );
+        fprintf( stderr, "Cannot open device: %s\n", "/dev/mem" );
         return 1;
     }
-
-
-	//
-    // Enable IO Permission
-	//
-    if( ioperm( LFDK_CMOS_IO_START, LFDK_CMOS_IO_END, 1 ) ) {
-
-        fprintf( stderr, "Failed to Execute ioperm()\n" );
-		close( fd );
-		return 1;
-    }
+	if (fd) close(fd);
 
 
     //
@@ -208,7 +338,7 @@ int main( int argc, char **argv ) {
     //
     // Scan PCI devices
     //
-    ScanPCIDevice( fd );
+    ScanPCIDevice();
 
 
     for( ; ; ) {

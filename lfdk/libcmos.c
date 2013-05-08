@@ -27,12 +27,12 @@
 #include <ncurses.h>
 #include <panel.h>
 
-#include "../lfdd/lfdd.h"
+//#include "../lfdd/lfdd.h"
 #include "lfdk.h"
 
 
 MemPanel CmosScreen;
-struct lfdd_io_t lfdd_io_data;
+//struct lfdd_io_t lfdd_io_data;
 
 
 extern int x, y;
@@ -46,7 +46,10 @@ unsigned int cmos_addr = 0;
 
 
 void WriteCmosByteValue() {
-
+	//
+    // Enable IO Permission
+	//
+    ioperm( LFDK_CMOS_IO_START, LFDK_CMOS_IO_END, 1 );
 	outb( x * LFDK_BYTE_PER_LINE + y, LFDK_CMOS_ADDR_PORT );
 	outb( wbuf, LFDK_CMOS_DATA_PORT );
 }
@@ -55,6 +58,7 @@ void WriteCmosByteValue() {
 void ReadCmos256Bytes( char *buf ) {
 
 	int i;
+	ioperm( LFDK_CMOS_IO_START, LFDK_CMOS_IO_END, 1 );
 
 	for( i = 0 ; i < LFDK_CMOS_RANGE_BYTES ; i++ ) {
 
@@ -77,6 +81,7 @@ void PrintCmosScreen() {
 
     int i, j;
     char tmp;
+	unsigned char u8Buff[LFDD_MASSBUF_SIZE];
 
 
         if( ibuf == KEY_UP ) {
@@ -201,7 +206,7 @@ void PrintCmosScreen() {
     //
     // Read memory space 256 bytes
     //
-	ReadCmos256Bytes( lfdd_io_data.mass_buf );
+	ReadCmos256Bytes( u8Buff );
 
 
     //
@@ -223,7 +228,7 @@ void PrintCmosScreen() {
 
         for( j = 0 ; j < LFDK_BYTE_PER_LINE ; j++ ) {
 
-            tmp = ((unsigned char)lfdd_io_data.mass_buf[ (i * LFDK_BYTE_PER_LINE) + j ]);
+            tmp = ((unsigned char)u8Buff[ (i * LFDK_BYTE_PER_LINE) + j ]);
             if( (tmp >= '!') && (tmp <= '~') ) {
             
                 wprintw( CmosScreen.ascii, "%c", tmp );
@@ -280,7 +285,7 @@ void PrintCmosScreen() {
                     wattrset( CmosScreen.value, COLOR_PAIR( BLACK_YELLOW ) | A_BOLD ); 
                 }
             }
-            else if( ((unsigned char)lfdd_io_data.mass_buf[ (i * LFDK_BYTE_PER_LINE) + j ]) ) {
+            else if( ((unsigned char)u8Buff[ (i * LFDK_BYTE_PER_LINE) + j ]) ) {
            
                 wattrset( CmosScreen.value, COLOR_PAIR( YELLOW_BLUE ) | A_BOLD );            
             }
@@ -302,12 +307,12 @@ void PrintCmosScreen() {
                 }
                 else {
                 
-                    wprintw( CmosScreen.value, "%2.2X", (unsigned char)lfdd_io_data.mass_buf[ (i * LFDK_BYTE_PER_LINE) + j ] );
+                    wprintw( CmosScreen.value, "%2.2X", (unsigned char)u8Buff[ (i * LFDK_BYTE_PER_LINE) + j ] );
                 }
             }
             else {
 
-                wprintw( CmosScreen.value, "%2.2X", (unsigned char)lfdd_io_data.mass_buf[ (i * LFDK_BYTE_PER_LINE) + j ] );
+                wprintw( CmosScreen.value, "%2.2X", (unsigned char)u8Buff[ (i * LFDK_BYTE_PER_LINE) + j ] );
             }
 
 

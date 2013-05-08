@@ -3,6 +3,7 @@
  * File: libio.c
  *
  * Copyright (C) 2006 - 2010 Merck Hung <merckhung@gmail.com>
+ * Copyright (C) 2013 Desmond Wu <wkunhui@gmail.com>
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -26,12 +27,12 @@
 #include <ncurses.h>
 #include <panel.h>
 
-#include "../lfdd/lfdd.h"
+//#include "../lfdd/lfdd.h"
 #include "lfdk.h"
 
 
 MemPanel IOScreen;
-struct lfdd_io_t lfdd_io_data;
+//struct lfdd_io_t lfdd_io_data;
 
 
 extern int x, y;
@@ -45,16 +46,6 @@ extern char enter_mem;
 unsigned int ioaddr = 0;
 
 
-void WriteIOByteValue( fd ) {
-
-
-    lfdd_io_data.addr = ioaddr + x * LFDK_BYTE_PER_LINE + y;
-    lfdd_io_data.buf = wbuf;
-
-    LFDD_IOCTL( fd, LFDD_IO_WRITE_BYTE, lfdd_io_data );
-}
-
-
 void ClearIOScreen() {
 
     DestroyWin( IOScreen, offset );
@@ -66,8 +57,10 @@ void ClearIOScreen() {
 
 void PrintIOScreen( int fd ) {
 
-    int i, j;
+    int i, j , k;
     char tmp;
+	unsigned char u8Buff[LFDD_MASSBUF_SIZE];
+
 
 
     if( enter_mem ) {
@@ -171,7 +164,7 @@ void PrintIOScreen( int fd ) {
             if( input ) {
 
                 input = 0;
-                WriteIOByteValue( fd );
+                io_byte_set( ioaddr + x * 16 + y,wbuf );
             }
         }
         else if ( ((ibuf >= '0') && (ibuf <= '9'))
@@ -256,12 +249,15 @@ void PrintIOScreen( int fd ) {
     //
     if( enter_mem ) {
 
-        memset( lfdd_io_data.mass_buf, 0xff, LFDD_MASSBUF_SIZE );
+       //memset( lfdd_io_data.mass_buf, 0xff, LFDD_MASSBUF_SIZE );
+		memset( u8Buff, 0xff, LFDD_MASSBUF_SIZE );
     }
     else {
 
-        lfdd_io_data.addr = ioaddr;
-        LFDD_IOCTL( fd, LFDD_IO_READ_256BYTE, lfdd_io_data );
+        //lfdd_io_data.addr = ioaddr;
+        //LFDD_IOCTL( fd, LFDD_IO_READ_256BYTE, lfdd_io_data );
+		for(k=0;k<256;k+=4)
+			*((unsigned int *)&u8Buff[k])=io_int_get(ioaddr+k);
     }
 
 
@@ -284,7 +280,7 @@ void PrintIOScreen( int fd ) {
 
         for( j = 0 ; j < LFDK_BYTE_PER_LINE ; j++ ) {
 
-            tmp = ((unsigned char)lfdd_io_data.mass_buf[ (i * LFDK_BYTE_PER_LINE) + j ]);
+            tmp = (u8Buff[ (i * LFDK_BYTE_PER_LINE) + j ]);
             if( (tmp >= '!') && (tmp <= '~') ) {
             
                 wprintw( IOScreen.ascii, "%c", tmp );
@@ -341,7 +337,7 @@ void PrintIOScreen( int fd ) {
                     wattrset( IOScreen.value, COLOR_PAIR( BLACK_YELLOW ) | A_BOLD ); 
                 }
             }
-            else if( ((unsigned char)lfdd_io_data.mass_buf[ (i * LFDK_BYTE_PER_LINE) + j ]) ) {
+            else if( (u8Buff[ (i * LFDK_BYTE_PER_LINE) + j ]) ) {
            
                 wattrset( IOScreen.value, COLOR_PAIR( YELLOW_BLUE ) | A_BOLD );            
             }
@@ -363,12 +359,12 @@ void PrintIOScreen( int fd ) {
                 }
                 else {
                 
-                    wprintw( IOScreen.value, "%2.2X", (unsigned char)lfdd_io_data.mass_buf[ (i * LFDK_BYTE_PER_LINE) + j ] );
+                    wprintw( IOScreen.value, "%2.2X", u8Buff[ (i * LFDK_BYTE_PER_LINE) + j ] );
                 }
             }
             else {
 
-                wprintw( IOScreen.value, "%2.2X", (unsigned char)lfdd_io_data.mass_buf[ (i * LFDK_BYTE_PER_LINE) + j ] );
+                wprintw( IOScreen.value, "%2.2X", u8Buff[ (i * LFDK_BYTE_PER_LINE) + j ] );
             }
 
 

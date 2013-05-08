@@ -3,6 +3,7 @@
  * File: lfdk.h
  *
  * Copyright (C) 2006 - 2010 Merck Hung <merckhung@gmail.com>
+ * Copyright (C) 2013 Desmond Wu <wkunhui@gmail.com>
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -42,6 +43,20 @@
         exit( 1 );                                          \
     }                                                       \
 }
+#define LFDD_MASSBUF_SIZE	256
+
+unsigned int  io_int_get(unsigned int u32addr);
+void  io_int_set(unsigned int u32addr, unsigned int u32data);
+void io_byte_set(unsigned int u32addr, unsigned char u8data);
+
+unsigned int pci_int_get(unsigned char u8bus, unsigned char u8dev, unsigned char u8fun, unsigned char u8reg);
+void pci_int_set(unsigned char u8bus, unsigned char u8dev, unsigned char u8fun, unsigned char u8reg, unsigned int u32data);
+void pci_byte_set(unsigned char u8bus, unsigned char u8dev, unsigned char u8fun, unsigned char u8reg, unsigned char u8data);
+
+int mem_int_set( unsigned int u32addr, unsigned int u32data );
+int mem_byte_set( unsigned int u32addr, unsigned char u8data );
+int mem_int_get( unsigned int u32addr, unsigned int *pu32data );
+
 
 
 #define PrintWin( RESRC, NAME, LINE, COLUMN, X, Y, COLORPAIR, FORMAT, ARGS... ) {   \

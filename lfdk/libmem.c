@@ -3,6 +3,7 @@
  * File: libmem.c
  *
  * Copyright (C) 2006 - 2010 Merck Hung <merckhung@gmail.com>
+ * Copyright (C) 2013 Desmond Wu <wkunhui@gmail.com>
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -26,12 +27,12 @@
 #include <ncurses.h>
 #include <panel.h>
 
-#include "../lfdd/lfdd.h"
+//#include "../lfdd/lfdd.h"
 #include "lfdk.h"
 
 
 MemPanel MemScreen;
-struct lfdd_mem_t lfdd_mem_data;
+//struct lfdd_mem_t lfdd_mem_data;
 
 
 extern int x, y;
@@ -45,16 +46,6 @@ extern char enter_mem;
 unsigned int phyaddr = 0;
 
 
-void WriteMemByteValue( fd ) {
-
-
-    lfdd_mem_data.addr = phyaddr + x * LFDK_BYTE_PER_LINE + y;
-    lfdd_mem_data.buf = wbuf;
-
-    LFDD_IOCTL( fd, LFDD_MEM_WRITE_BYTE, lfdd_mem_data );
-}
-
-
 void ClearMemScreen() {
 
     DestroyWin( MemScreen, offset );
@@ -66,8 +57,9 @@ void ClearMemScreen() {
 
 void PrintMemScreen( int fd ) {
 
-    int i, j;
+    int i, j , k;
     char tmp;
+	unsigned char u8Buff[LFDD_MASSBUF_SIZE];
 
 
     if( enter_mem ) {
@@ -169,9 +161,11 @@ void PrintMemScreen( int fd ) {
         else if( ibuf == 0x0a ) {
 
             if( input ) {
+				char cbuff[255];
 
                 input = 0;
-                WriteMemByteValue( fd );
+                //WriteMemByteValue( fd );
+				mem_byte_set(phyaddr + x * 16 + y,wbuf);
             }
         }
         else if ( ((ibuf >= '0') && (ibuf <= '9'))
@@ -256,12 +250,15 @@ void PrintMemScreen( int fd ) {
     //
     if( enter_mem ) {
 
-        memset( lfdd_mem_data.mass_buf, 0xff, LFDD_MASSBUF_SIZE );
+        memset( u8Buff, 0xff, LFDD_MASSBUF_SIZE );
     }
     else {
 
-        lfdd_mem_data.addr = phyaddr;
-        LFDD_IOCTL( fd, LFDD_MEM_READ_256BYTE, lfdd_mem_data );
+        //lfdd_mem_data.addr = phyaddr;
+        //LFDD_IOCTL( fd, LFDD_MEM_READ_256BYTE, lfdd_mem_data );
+		for(k=0;k<256;k+=4)
+			mem_int_get( phyaddr+k,(unsigned int *)&u8Buff[k]);
+		
     }
 
 
@@ -284,7 +281,7 @@ void PrintMemScreen( int fd ) {
 
         for( j = 0 ; j < LFDK_BYTE_PER_LINE ; j++ ) {
 
-            tmp = ((unsigned char)lfdd_mem_data.mass_buf[ (i * LFDK_BYTE_PER_LINE) + j ]);
+            tmp = ((unsigned char)u8Buff[ (i * LFDK_BYTE_PER_LINE) + j ]);
             if( (tmp >= '!') && (tmp <= '~') ) {
             
                 wprintw( MemScreen.ascii, "%c", tmp );
@@ -341,7 +338,7 @@ void PrintMemScreen( int fd ) {
                     wattrset( MemScreen.value, COLOR_PAIR( BLACK_YELLOW ) | A_BOLD ); 
                 }
             }
-            else if( ((unsigned char)lfdd_mem_data.mass_buf[ (i * LFDK_BYTE_PER_LINE) + j ]) ) {
+            else if( ((unsigned char)u8Buff[ (i * LFDK_BYTE_PER_LINE) + j ]) ) {
            
                 wattrset( MemScreen.value, COLOR_PAIR( YELLOW_BLUE ) | A_BOLD );            
             }
@@ -363,12 +360,12 @@ void PrintMemScreen( int fd ) {
                 }
                 else {
                 
-                    wprintw( MemScreen.value, "%2.2X", (unsigned char)lfdd_mem_data.mass_buf[ (i * LFDK_BYTE_PER_LINE) + j ] );
+                    wprintw( MemScreen.value, "%2.2X", (unsigned char)u8Buff[ (i * LFDK_BYTE_PER_LINE) + j ] );
                 }
             }
             else {
 
-                wprintw( MemScreen.value, "%2.2X", (unsigned char)lfdd_mem_data.mass_buf[ (i * LFDK_BYTE_PER_LINE) + j ] );
+                wprintw( MemScreen.value, "%2.2X", (unsigned char)u8Buff[ (i * LFDK_BYTE_PER_LINE) + j ] );
             }
 
 

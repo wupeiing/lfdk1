@@ -1,0 +1,18 @@
+
+lfdk
+
+lfdk is a tool which have similar GUI to DOS "RU".
+All legacy BIOS mostly like this tool, because that they can view Memory Space,
+IO Space, and PCI Space under linux.
+
+
+web site:
+     http://lfdk.sourceforge.net/
+
+build/install:	 
+	You should install ncurses before install lfdk.
+	In Ubuntu 11.04 ,you can do command as bellow:
+	 apt-get install libncurses5 
+	 
+any question:
+mail to:wkunhui@gmail.com

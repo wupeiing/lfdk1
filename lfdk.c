@@ -59,7 +59,7 @@ unsigned int  io_int_get(unsigned int u32addr)
 }
 void  io_int_set(unsigned int u32addr, unsigned int u32data)
 {
-	ioperm(u32addr,4, 1);
+	ioperm(u32addr,4, 1); // ioperm(address from, byte num, enable or disable);
 	outl(u32data, u32addr );
 }
 void io_byte_set(unsigned int u32addr, unsigned char u8data)
